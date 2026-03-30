@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  api-flask:
+    build: .
+    image: minha-api-flask:latest
+    container_name: app_producao
+    ports:
+      - "80:5000"
+    restart: always
+    environment:
+      - FLASK_ENV=production

@@ -1,13 +1,12 @@
-name: Pipeline de Integracao Continua (CI)
+name: Pipeline de CI/CD e Seguranca
 
 on:
   push:
     branches: [ "main" ]
 
 jobs:
-  build-and-test:
+  build-test-sec:
     runs-on: ubuntu-latest
-
     steps:
     - name: 1. Checkout do codigo
       uses: actions/checkout@v3
@@ -22,10 +21,35 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: 4. Executar Testes Automatizados
-      run: |
-        pytest test_app.py
+    - name: 4. Executar Testes Automatizados (Pytest)
+      run: pytest test_app.py
 
-    - name: 5. Build da Imagem Docker
-      run: |
-        docker build -t minha-api-flask:latest .
+    - name: 5. Analise de Seguranca Estatica (SAST)
+      run: bandit -r app.py
+
+    - name: 6. Build da Imagem Docker
+      run: docker build -t minha-api-flask:latest .
+
+  deploy-cd:
+    needs: build-test-sec
+    runs-on: ubuntu-latest
+    steps:
+    - name: 7. Deploy na AWS EC2
+      uses: appleboy/ssh-action@v0.1.6
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          sudo apt-get update -y
+          sudo apt-get install docker.io docker-compose git -y
+          sudo systemctl start docker
+          sudo systemctl enable docker
+          sudo usermod -aG docker ubuntu
+          
+          rm -rf projeto-devops-fase1
+          git clone https://github.com/${{ github.repository }}.git projeto-devops-fase1
+          cd projeto-devops-fase1
+          
+          sudo docker-compose down
+          sudo docker-compose up -d --build
